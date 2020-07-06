@@ -1,0 +1,1183 @@
+-- Gui made originally by seagulltoaster
+-- Remote spy script was originally written by autumn, amended by asd & 3dsboy08, fixed by wally and edited by Pyseph. I've taken parts of their script for my remote spy so all credit goes to them.
+-- The close icon was stolen from OwlHub (sorry lol i couldn't find another one that was good, so take it as a compliment)
+
+
+-- Variables
+local SCRIPT_ENABLED = true
+
+local LOCAL_PLAYER = game.Players.LocalPlayer
+local MOUSE = LOCAL_PLAYER:GetMouse()
+
+local LOG_COUNT = 0
+local BUNCH_COUNT = 0
+
+-- Settings = 
+local THEME_SETTING = 1 -- Dark Mode = 1, Light Mode = 2
+local APPLICATION_TITLE = "Remote Spy"
+
+local APP_MIN_SIZE = Vector2.new(400, 60)
+local APP_DEFAULT_SIZE = Vector2.new(550, 380)
+local APP_INTERACTIVE_FRAME_WIDTH = 140
+
+local ALLOW_CHAT_REMOTES = false
+local AUTO_SCROLL_ENABLED = false
+local SHOW_NUMBERS = false
+
+local SPIED_REMOTES = {}
+local REMOTES_IN_EXPLORER = {}
+
+local BLACKLISTED_REMOTE_NAMES = { -- These are just default roblox remotes (only for explorer)
+	"OnNewMessage",
+	"OnMessageDoneFiltering",
+	"OnNewSystemMessage",
+	"OnChannelJoined",
+	"OnChannelLeft",
+	"OnMuted",
+	"OnUnmuted",
+	"OnMainChannelSet",
+	"ChannelNameColorUpdated",
+	"SayMessageRequest",
+	"SetBlockedUserIdsRequest",
+	"GetInitDataRequest",
+	"MutePlayerRequest",
+	"UnMutePlayerRequest",
+	"FollowRelationshipChanged",
+	"NewFollower",
+	"GetFollowRelationships",
+	"CanChatWith",
+	"SetPlayerBlockList",
+	"UpdatePlayerBlockList",
+	"NewPlayerGroupDetails",
+	"NewPlayerCanManageDetails",
+	"SetDialogInUse",
+	"GetServerVersion"
+}
+
+-- Theme
+local THEME = {}
+
+if THEME_SETTING == 1 then
+	THEME.TextColor = Color3.fromRGB(255, 255, 255)
+	
+	THEME.TextFont_Standard = Enum.Font.Gotham
+	THEME.TextFont_SemiBold = Enum.Font.GothamSemibold
+	THEME.TextFont_Bold = Enum.Font.GothamBold
+	
+	THEME.AppTitle_Font = Enum.Font.GothamBold
+	THEME.ViewerContainerBackgroundColor = Color3.fromRGB(35, 35, 35)
+	
+	THEME.BackgroundColor_1 = Color3.fromRGB(70, 70, 70)
+	THEME.BackgroundColor_2 = Color3.fromRGB(60, 60, 60)
+	THEME.BackgroundColor_3 = Color3.fromRGB(50, 50, 50)
+	THEME.BackgroundColor_4 = Color3.fromRGB(40, 40, 40)
+	THEME.BackgroundColor_5 = Color3.fromRGB(30, 30, 30)
+	
+	THEME.BunchColor = Color3.fromRGB(45, 65, 75)
+	THEME.LogHandleColor = Color3.fromRGB(40, 40, 40)
+	THEME.LogCopyToClipboardButtonColor = Color3.fromRGB(60, 60, 60)
+	
+	THEME.SwitchColor = Color3.fromRGB(255, 255, 255)
+	THEME.SwitchBackgroundColor_Off = Color3.fromRGB(100, 40, 40)
+	THEME.SwitchBackgroundColor_On = Color3.fromRGB(40, 160, 40)
+end
+
+-- Remote Spy Settings
+local ENABLED_TYPES = {
+	BindableEvent = false,
+	BindableFunction = false,
+	RemoteEvent = true,
+	RemoteFunction = true
+}
+
+local REMOTE_CALL_METHODS_REFERENCE = {
+	BindableEvent = "Fire",
+	BindableFunction = "Invoke",
+	RemoteEvent = "FireServer",
+	RemoteFunction = "InvokeServer"
+}
+
+local REMOTE_CALL_METHODS = REMOTE_CALL_METHODS_REFERENCE
+
+-- Gui Functions
+local function AddPadding(parent, height)
+	local frame = Instance.new("Frame", parent)
+	frame.Name = "Padding"
+	frame.BackgroundTransparency = 1
+	frame.Size = UDim2.new(1, 0, 0, height)
+	
+	return frame
+end
+
+-- Gui
+local guiParent = game:GetService("RunService"):IsStudio() and game.Players.LocalPlayer.PlayerGui or game.CoreGui
+
+local gui = Instance.new("ScreenGui", guiParent)
+gui.Name = "RemoteSpy"
+gui.ResetOnSpawn = false
+
+local appFrame = Instance.new("Frame", gui)
+appFrame.Name = "ApplicationFrame"
+appFrame.BorderSizePixel = 0
+appFrame.BackgroundColor3 = THEME.BackgroundColor_3
+appFrame.Size = UDim2.new(0, APP_DEFAULT_SIZE.X, 0, APP_DEFAULT_SIZE.Y)
+
+local appResizeHandle = Instance.new("TextButton", appFrame)
+appResizeHandle.Name = "ResizeHandle"
+appResizeHandle.AnchorPoint = Vector2.new(1, 1)
+appResizeHandle.Position = UDim2.new(1, 0, 1, 0)
+appResizeHandle.BackgroundTransparency = 1
+appResizeHandle.Size = UDim2.new(0, 10, 0, 10)
+appResizeHandle.ZIndex = 1000
+appResizeHandle.Text = ""
+
+-- Dots for resize handle
+local dot1 = Instance.new("Frame", appResizeHandle)
+dot1.Name = "Dot"
+dot1.Size = UDim2.new(0, 2, 0, 2)
+dot1.Position = UDim2.new(0, 8, 0, 0)
+dot1.BorderSizePixel = 0
+dot1.BackgroundColor3 = Color3.new(1, 1, 1)
+dot1.ZIndex = 1000
+
+local dot2 = dot1:Clone() dot2.Parent = appResizeHandle dot2.Position = UDim2.new(0, 8, 0, 4)
+local dot3 = dot1:Clone() dot3.Parent = appResizeHandle dot3.Position = UDim2.new(0, 8, 0, 8)
+local dot4 = dot1:Clone() dot4.Parent = appResizeHandle dot4.Position = UDim2.new(0, 4, 0, 4)
+local dot5 = dot1:Clone() dot5.Parent = appResizeHandle dot5.Position = UDim2.new(0, 4, 0, 8)
+local dot6 = dot1:Clone() dot6.Parent = appResizeHandle dot6.Position = UDim2.new(0, 0, 0, 8)
+
+local appFrameHandle = Instance.new("TextButton", appFrame)
+appFrameHandle.Name = "DragHandle"
+appFrameHandle.BorderSizePixel = 0
+appFrameHandle.AutoButtonColor = false
+appFrameHandle.Size = UDim2.new(1, 0, 0, 20)
+appFrameHandle.BackgroundColor3 = THEME.BackgroundColor_3
+appFrameHandle.Text = ""
+
+local appFrameTitle = Instance.new("TextLabel", appFrameHandle)
+appFrameTitle.Name = "AppTitle"
+appFrameTitle.AnchorPoint = Vector2.new(1, 0)
+appFrameTitle.Size = UDim2.new(1, -10, 1, 0)
+appFrameTitle.Position = UDim2.new(1, 0, 0, -1)
+appFrameTitle.TextSize = 14
+appFrameTitle.Font = THEME.AppTitle_Font
+appFrameTitle.BackgroundTransparency = 1
+appFrameTitle.TextColor3 = THEME.TextColor
+appFrameTitle.TextXAlignment = Enum.TextXAlignment.Left
+appFrameTitle.Text = APPLICATION_TITLE
+
+local closeButton = Instance.new("ImageButton", appFrameHandle)
+closeButton.Name = "CloseButton"
+closeButton.Image = "rbxassetid://4389749368"
+closeButton.Size = UDim2.new(0, 12, 0, 12)
+closeButton.AnchorPoint = Vector2.new(0, 0.5)
+closeButton.BackgroundTransparency = 1
+closeButton.AutoButtonColor = false
+closeButton.Position = UDim2.new(1, -18, 0.5, 0)
+
+local viewerTabContainer = Instance.new("Frame", appFrame)
+viewerTabContainer.Name = "TabContainer"
+viewerTabContainer.Position = UDim2.new(0, APP_INTERACTIVE_FRAME_WIDTH, 0, 20)
+viewerTabContainer.Size = UDim2.new(1, -APP_INTERACTIVE_FRAME_WIDTH, 0, 16)
+viewerTabContainer.BorderSizePixel = 0
+viewerTabContainer.BackgroundColor3 = THEME.ViewerContainerBackgroundColor
+
+-- Output
+local outputTab = Instance.new("TextButton", viewerTabContainer)
+outputTab.Name = "OutputTab"
+outputTab.BackgroundColor3 = THEME.BackgroundColor_3
+outputTab.BorderSizePixel = 0
+outputTab.AutoButtonColor = false
+outputTab.Size = UDim2.new(0, 65, 1, -2)
+outputTab.Position = UDim2.new(0, 4, 1, 0)
+outputTab.AnchorPoint = Vector2.new(0, 1)
+outputTab.Font = THEME.TextFont_Bold
+outputTab.TextColor3 = THEME.TextColor
+outputTab.TextSize = 11
+outputTab.Text = "Output"
+
+local outputContainer = Instance.new("ScrollingFrame", appFrame)
+outputContainer.Name = "OutputContainer"
+outputContainer.BackgroundTransparency = 1
+outputContainer.TopImage = outputContainer.MidImage
+outputContainer.BottomImage = outputContainer.MidImage
+outputContainer.AnchorPoint = Vector2.new(1, 1)
+outputContainer.Position = UDim2.new(1, 0, 1, 0)
+outputContainer.Size = UDim2.new(1, -APP_INTERACTIVE_FRAME_WIDTH, 1, -38)
+outputContainer.BorderSizePixel = 0
+outputContainer.ScrollBarThickness = 8
+outputContainer.ScrollingEnabled = true
+outputContainer.Active = true
+outputContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+outputContainer.ZIndex = 50
+
+local outputUIList = Instance.new("UIListLayout", outputContainer)
+outputUIList.SortOrder = Enum.SortOrder.LayoutOrder
+outputUIList.HorizontalAlignment = Enum.HorizontalAlignment.Right
+
+-- Explorer
+local explorerTab = Instance.new("TextButton", viewerTabContainer)
+explorerTab.Name = "OutputTab"
+explorerTab.BackgroundColor3 = THEME.ViewerContainerBackgroundColor
+explorerTab.BorderSizePixel = 0
+explorerTab.AutoButtonColor = false
+explorerTab.Size = UDim2.new(0, 65, 1, -2)
+explorerTab.Position = UDim2.new(0, 71, 1, 0)
+explorerTab.AnchorPoint = Vector2.new(0, 1)
+explorerTab.Font = THEME.TextFont_Bold
+explorerTab.TextColor3 = THEME.TextColor
+explorerTab.TextSize = 11
+explorerTab.Text = "Explorer"
+
+local explorerContainer = outputContainer:Clone()
+explorerContainer.Name = "ExplorerContainer"
+explorerContainer.Parent = appFrame
+explorerContainer.Visible = false
+explorerContainer.ZIndex = 1
+explorerContainer.UIListLayout:Destroy()
+
+local explorerUIList = Instance.new("UIListLayout", explorerContainer)
+explorerUIList.SortOrder = Enum.SortOrder.LayoutOrder
+explorerUIList.Padding = UDim.new(0, 2)
+
+-- Interactive Stuff
+local function CreateButton(parent, name, buttonText, connectFunction, args)
+	local button = Instance.new("TextButton", parent)
+	button.Name = name
+	button.Font = THEME.TextFont_Bold
+	button.TextSize = 13
+	button.Text = "  " .. buttonText
+	button.TextColor3 = THEME.TextColor
+	button.TextXAlignment = Enum.TextXAlignment.Left
+	button.Size = UDim2.new(1, 0, 0, 14)
+	button.BackgroundTransparency = 1
+	
+	button.MouseEnter:Connect(function()
+		button.TextColor3 = Color3.new(THEME.TextColor.r - 0.25, THEME.TextColor.g - 0.25, THEME.TextColor.b - 0.25)
+	end)
+	
+	button.MouseLeave:Connect(function()
+		button.TextColor3 = THEME.TextColor
+	end)
+	
+	button.MouseButton1Click:Connect(function()
+		connectFunction(unpack(args))
+	end)
+end
+
+local function CreateSwitch(parent, name, label, onByDefault, connectFunction)
+	local frame = Instance.new("TextLabel", parent)
+	frame.Name = name
+	frame.Font = THEME.TextFont_Bold
+	frame.TextSize = 13
+	frame.Text = "  " .. label
+	frame.Size = UDim2.new(1, 0, 0, 14)
+	frame.TextColor3 = THEME.TextColor
+	frame.TextXAlignment = Enum.TextXAlignment.Left
+	frame.BackgroundTransparency = 1
+	
+	local background = Instance.new("Frame", frame)
+	background.Name = "Background"
+	background.AnchorPoint = Vector2.new(1, 0.5)
+	background.Position = UDim2.new(1, -4, 0.5, 0)
+	background.Size = UDim2.new(0, 25, 1, -4)
+	background.BackgroundColor3 = THEME.SwitchBackgroundColor_Off
+	background.BorderSizePixel = 0
+	
+	local clickBox = Instance.new("TextButton", background)
+	clickBox.Name = "ClickBox"
+	clickBox.Size = UDim2.new(1, 0, 1, 0)
+	clickBox.BackgroundTransparency = 1
+	clickBox.Text = ""
+	
+	local switch = Instance.new("Frame", background)
+	switch.Name = "Switch"
+	switch.BackgroundColor3 = THEME.SwitchColor
+	switch.BorderSizePixel = 0
+	switch.Size = UDim2.new(0.3, 0, 1, 0)
+	
+	-- Interaction
+	local currentValue = onByDefault
+	
+	local function Update()
+		connectFunction(currentValue)
+		
+		local tweenInfo = TweenInfo.new(
+			0.2,
+			Enum.EasingStyle.Cubic,
+			Enum.EasingDirection.InOut
+		)
+		
+		if currentValue == true then
+			local goal1 = {}
+			goal1.BackgroundColor3 = THEME.SwitchBackgroundColor_On
+			
+			local goal2 = {}
+			goal2.AnchorPoint = Vector2.new(1, 0)
+			goal2.Position = UDim2.new(1, 0, 0, 0)
+			
+			local t1 = game:GetService("TweenService"):Create(background, tweenInfo, goal1)
+			local t2 = game:GetService("TweenService"):Create(switch, tweenInfo, goal2)
+			
+			t1:Play()
+			t2:Play()
+		else
+			local goal1 = {}
+			goal1.BackgroundColor3 = THEME.SwitchBackgroundColor_Off
+			
+			local goal2 = {}
+			goal2.AnchorPoint = Vector2.new(0, 0)
+			goal2.Position = UDim2.new(0, 0, 0, 0)
+			
+			local t1 = game:GetService("TweenService"):Create(background, tweenInfo, goal1)
+			local t2 = game:GetService("TweenService"):Create(switch, tweenInfo, goal2)
+			
+			t1:Play()
+			t2:Play()
+		end
+	end
+	
+	Update()
+	
+	clickBox.MouseButton1Click:Connect(function()
+		currentValue = not currentValue
+		Update()
+	end)
+end
+
+-- Settings
+local appInteractive = Instance.new("Frame", appFrame)
+appInteractive.Name = "AppInteractiveFrame"
+appInteractive.Position = UDim2.new(0, 0, 0, 20)
+appInteractive.Size = UDim2.new(0, APP_INTERACTIVE_FRAME_WIDTH, 1, -20)
+appInteractive.BorderSizePixel = 0
+appInteractive.BackgroundColor3 = THEME.BackgroundColor_2
+appInteractive.ClipsDescendants = true
+
+local appInteractiveUIList = Instance.new("UIListLayout", appInteractive)
+appInteractiveUIList.SortOrder = Enum.SortOrder.LayoutOrder
+
+do -- Interactive Stuff
+	AddPadding(appInteractive, 3)
+	
+	local function clearOutput()
+		LOG_COUNT = 0
+		BUNCH_COUNT = 0
+		
+		for _, v in pairs(outputContainer:GetChildren()) do
+			if not v:IsA("UIListLayout") then
+				v:Destroy()
+			end
+		end
+	end
+	
+	local function collapseAll()
+		for _, v in pairs(outputContainer:GetChildren()) do
+			if v:FindFirstChild("Collapsed") then
+				v.Collapsed.Value = true
+			end
+		end
+	end
+	
+	local function spyAll(newValue)
+		for _, v in pairs(SPIED_REMOTES) do
+			if v.GetValue() ~= newValue then
+				v.SetValue(newValue)
+			end
+		end
+	end
+	
+	local function chatRemote(newValue)
+		ALLOW_CHAT_REMOTES = newValue
+	end
+	
+	CreateButton(appInteractive, "Button_ClearOutput", "Clear Output", clearOutput, {})
+	CreateButton(appInteractive, "Button_CollapseAll", "Collapse All", collapseAll, {})
+	AddPadding(appInteractive, 5)
+	CreateSwitch(appInteractive, "Switch_SpyAll", "Spy All", true, spyAll)
+	CreateSwitch(appInteractive, "Switch_ChatRemotes", "Chat Remotes", ALLOW_CHAT_REMOTES, chatRemote)
+end
+
+-- Gui Interaction
+do
+	local lastSize
+	local minimized = false
+	
+	closeButton.MouseButton1Click:Connect(function()
+		gui:Destroy()
+		SCRIPT_ENABLED = false
+	end)
+end
+
+do -- Application Handle Interaction
+	local dragging = false
+	
+	appFrameHandle.MouseButton1Down:Connect(function()
+		dragging = true
+		
+		local dragStartOffset = Vector2.new(MOUSE.X, MOUSE.Y) - appFrame.AbsolutePosition
+		
+		repeat
+			appFrame.Position = UDim2.new(0, MOUSE.X - dragStartOffset.X, 0, MOUSE.Y - dragStartOffset.Y)
+			
+			game:GetService("RunService").RenderStepped:Wait()
+		until dragging == false
+	end)
+	
+	appFrameHandle.MouseButton1Up:Connect(function()
+		dragging = false
+	end)
+	
+	game:GetService("UserInputService").InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+end
+
+do -- Application Resize Handle Interaction
+	local dragging = false
+	
+	appResizeHandle.MouseButton1Down:Connect(function()
+		if SCRIPT_ENABLED then
+			dragging = true
+			
+			local dragStartPos = Vector2.new(MOUSE.X, MOUSE.Y)
+			local startSize = appFrame.AbsoluteSize
+			
+			repeat
+				local difference = Vector2.new(MOUSE.X, MOUSE.Y) - dragStartPos
+				
+				local sizeX = difference.X + startSize.X
+				local sizeY = difference.Y + startSize.Y
+				
+				if sizeX < APP_MIN_SIZE.X then
+					sizeX = APP_MIN_SIZE.X
+				end
+				
+				if sizeY < APP_MIN_SIZE.Y then
+					sizeY = APP_MIN_SIZE.Y
+				end
+				
+				appFrame.Size = UDim2.new(0, sizeX, 0, sizeY)
+				
+				game:GetService("RunService").RenderStepped:Wait()
+			until dragging == false
+		end
+	end)
+	
+	appResizeHandle.MouseButton1Up:Connect(function()
+		dragging = false
+	end)
+	
+	game:GetService("UserInputService").InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+end
+
+do
+	local tweenInfo = TweenInfo.new(
+		0.08,
+		Enum.EasingStyle.Cubic,
+		Enum.EasingDirection.InOut
+	)
+	
+	local fadeoutGoal = {}
+	fadeoutGoal.BackgroundColor3 = THEME.BackgroundColor_3
+	
+	local fadeinGoal = {}
+	fadeinGoal.BackgroundColor3 = THEME.ViewerContainerBackgroundColor
+	
+	outputTab.MouseButton1Down:Connect(function()
+		if SCRIPT_ENABLED then
+			local t1 = game:GetService("TweenService"):Create(outputTab, tweenInfo, fadeoutGoal) t1:Play()
+			local t2 = game:GetService("TweenService"):Create(explorerTab, tweenInfo, fadeinGoal) t2:Play()
+			
+			outputContainer.Visible = true outputContainer.ZIndex = 100
+			explorerContainer.Visible = false explorerContainer.ZIndex = 1
+		end
+	end)
+	
+	explorerTab.MouseButton1Down:Connect(function()
+		if SCRIPT_ENABLED then
+			local t1 = game:GetService("TweenService"):Create(outputTab, tweenInfo, fadeinGoal) t1:Play()
+			local t2 = game:GetService("TweenService"):Create(explorerTab, tweenInfo, fadeoutGoal) t2:Play()
+			
+			outputContainer.Visible = false outputContainer.ZIndex = 1
+			explorerContainer.Visible = true explorerContainer.ZIndex = 100
+		end
+	end)
+end
+
+do -- Disable auto scroll if scroll up
+	game:GetService("UserInputService").InputChanged:Connect(function(input)
+		if SCRIPT_ENABLED then
+			if input.UserInputType == Enum.UserInputType.MouseWheel then
+				local min = outputContainer.AbsolutePosition
+				local max = min + outputContainer.AbsoluteSize
+				
+				local x = MOUSE.X
+				local y = MOUSE.Y
+				
+				if x > min.X and y > min.Y and x < max.X and y < max.Y then
+					if input.Position.Z > 0 then
+						AUTO_SCROLL_ENABLED = false
+						outputContainer.CanvasPosition = outputContainer.CanvasPosition - Vector2.new(0, 6)
+					end
+				end
+			end
+		end
+	end)
+end
+
+local function GetFullName(object)
+    local str = ""
+    local obj = object
+
+	local removeDot = false
+	
+	local function Check(s)
+		local first = string.sub(s, 1, 1)
+		
+		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890]]
+		
+		for i = 1, #bannedChars do
+			if first == string.sub(bannedChars, i, i) then
+				return false
+			end
+		end
+		
+		if first == "[" or first == "]" then
+			return false
+		end
+		
+		return true
+	end
+	
+	local components = {}
+    
+	while true do
+		table.insert(components, obj)
+        obj = obj.Parent
+
+		if obj == game then
+			break
+		end
+   	end
+
+	for i = #components, 1, -1 do
+		local comp = components[i].Name
+		
+		if Check(comp) then
+			str = str .. "." .. comp
+		else
+			str = str .. '["' .. comp .. '"]'
+		end
+	end
+    
+    return str
+end
+
+local function CheckContainerSize()
+	do -- Output
+		local width = outputUIList.AbsoluteContentSize.X
+		local height = outputUIList.AbsoluteContentSize.Y + 20
+		
+		outputContainer.CanvasSize = UDim2.new(0, 0, 0, height)
+	end
+	
+	do -- Explorer
+		local width = explorerUIList.AbsoluteContentSize.X
+		local height = explorerUIList.AbsoluteContentSize.Y + 20
+		
+		explorerContainer.CanvasSize = UDim2.new(0, 0, 0, height)
+	end
+end
+
+do -- Update explorer
+	local function AddRemoteToExplorer(remoteInfo)
+		local frame = Instance.new("TextLabel", explorerContainer)
+		frame.Name = remoteInfo.Remote.Name
+		frame.BackgroundColor3 = THEME.LogHandleColor
+		frame.Size = UDim2.new(1, 0, 0, 18)
+		frame.BorderSizePixel = 0
+		frame.Font = Enum.Font.Code
+		frame.TextColor3 = THEME.TextColor
+		frame.TextXAlignment = Enum.TextXAlignment.Left
+		frame.TextSize = 14
+		frame.Text = "    " .. remoteInfo.Remote.Name
+		
+		local icon = Instance.new("ImageLabel", frame)
+		icon.Name = "Icon"
+		icon.BackgroundTransparency = 1
+		icon.Size = UDim2.new(0, 16, 0, 16)
+		icon.Position = UDim2.new(0, 4, 0, 0)
+		
+		local callCountLabel = Instance.new("TextLabel", frame)
+		callCountLabel.Name = "CallCount"
+		callCountLabel.BackgroundTransparency = 1
+		callCountLabel.Size = UDim2.new(0, 60, 1, 0)
+		callCountLabel.Position = UDim2.new(1, -120, 0, 0)
+		callCountLabel.Font = Enum.Font.Code
+		callCountLabel.TextXAlignment = Enum.TextXAlignment.Right
+		callCountLabel.TextColor3 = THEME.TextColor
+		callCountLabel.TextSize = 14
+		callCountLabel.Text = "0"
+		
+		local objectValue = Instance.new("ObjectValue", frame)
+		objectValue.Name = "RemoteLink"
+		objectValue.Value = remoteInfo.Remote
+		
+		-- Switch
+		local background = Instance.new("Frame", frame)
+		background.Name = "Background"
+		background.AnchorPoint = Vector2.new(1, 0.5)
+		background.Position = UDim2.new(1, -20, 0.5, 0)
+		background.Size = UDim2.new(0, 25, 1, -8)
+		background.BackgroundColor3 = THEME.SwitchBackgroundColor_Off
+		background.BorderSizePixel = 0
+		
+		local clickBox = Instance.new("TextButton", background)
+		clickBox.Name = "ClickBox"
+		clickBox.Size = UDim2.new(1, 0, 1, 0)
+		clickBox.BackgroundTransparency = 1
+		clickBox.Text = ""
+		
+		local switch = Instance.new("Frame", background)
+		switch.Name = "Switch"
+		switch.BackgroundColor3 = THEME.SwitchColor
+		switch.BorderSizePixel = 0
+		switch.Size = UDim2.new(0.3, 0, 1, 0)
+		
+		-- Interaction
+		local currentValue = true
+		local calls = 0
+		
+		local function Update()
+			local tweenInfo = TweenInfo.new(
+				0.2,
+				Enum.EasingStyle.Cubic,
+				Enum.EasingDirection.InOut
+			)
+			
+			if currentValue == true then
+				local goal1 = {}
+				goal1.BackgroundColor3 = THEME.SwitchBackgroundColor_On
+				
+				local goal2 = {}
+				goal2.AnchorPoint = Vector2.new(1, 0)
+				goal2.Position = UDim2.new(1, 0, 0, 0)
+				
+				local t1 = game:GetService("TweenService"):Create(background, tweenInfo, goal1)
+				local t2 = game:GetService("TweenService"):Create(switch, tweenInfo, goal2)
+				
+				t1:Play()
+				t2:Play()
+			else
+				local goal1 = {}
+				goal1.BackgroundColor3 = THEME.SwitchBackgroundColor_Off
+				
+				local goal2 = {}
+				goal2.AnchorPoint = Vector2.new(0, 0)
+				goal2.Position = UDim2.new(0, 0, 0, 0)
+				
+				local t1 = game:GetService("TweenService"):Create(background, tweenInfo, goal1)
+				local t2 = game:GetService("TweenService"):Create(switch, tweenInfo, goal2)
+				
+				t1:Play()
+				t2:Play()
+			end
+		end
+		
+		Update()
+		
+		clickBox.MouseButton1Click:Connect(function()
+			currentValue = not currentValue
+			Update()
+		end)
+		
+		if remoteInfo.Remote.ClassName == "RemoteEvent" then
+			icon.Image = "rbxassetid://413369506"
+		elseif remoteInfo.Remote.ClassName == "RemoteFunction" then
+			icon.Image = "rbxassetid://413369623"
+		end
+		
+		
+		-- Return
+		local t = {}
+		t.Remote = remoteInfo.Remote
+		
+		function t.GetValue()
+			return currentValue
+		end
+		
+		function t.SetValue(v)
+			currentValue = v
+			Update()
+		end
+		
+		function t.CountCall()
+			calls = calls + 1
+			callCountLabel.Text = tostring(calls)
+			
+			spawn(function()
+				local originalColor = frame.BackgroundColor3
+				
+				frame.BackgroundColor3 = Color3.new(frame.BackgroundColor3.r + 0.25, frame.BackgroundColor3.g, frame.BackgroundColor3.b)
+				wait(0.05)
+				frame.BackgroundColor3 = THEME.LogHandleColor
+			end)
+		end
+		
+		table.insert(SPIED_REMOTES, t)
+	end
+	
+	local function Add(remote)
+		if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+			for _, blacklistedName in pairs(BLACKLISTED_REMOTE_NAMES) do
+				if remote.Name == blacklistedName then
+					return
+				end
+			end
+			
+			
+			local t = {}
+			t.Remote = remote
+			
+			table.insert(REMOTES_IN_EXPLORER, t)
+			AddRemoteToExplorer(t)
+		end
+	end
+	
+	local function RemoveListedRemote(remote)
+		-- Remove from gui
+		for _, v in pairs(explorerContainer:GetChildren()) do
+			if v:FindFirstChild("RemoteLink") then
+				if v.RemoteLink.Value == remote then
+					v:Destroy()
+				end
+			end
+		end
+		
+		-- Remove from table
+		for i, v in pairs(SPIED_REMOTES) do
+			if v.Remote == remote then
+				table.remove(SPIED_REMOTES, i)
+			end
+		end
+	end
+	
+	for _, v in pairs(game:GetDescendants()) do
+		Add(v)
+	end
+	
+	game.DescendantAdded:Connect(function(c)
+		Add(c)
+	end)
+	
+	game.DescendantRemoving:Connect(function(c)
+		for i, v in pairs(REMOTES_IN_EXPLORER) do
+			if v.Remote == c then
+				table.remove(REMOTES_IN_EXPLORER, i)
+			end
+		end
+	end)
+end
+
+-- Remote Spy
+local function LogRemote(self, prefix, iconOffset, text, code)
+	LOG_COUNT = LOG_COUNT + 1
+	
+	local lineHeight = 13
+	local lineTextSize = 13
+	
+	local height = #string.split(text, "\n") * lineHeight
+	
+	local newLogHandle = Instance.new("TextButton", outputContainer)
+	newLogHandle.Name = "Log_" .. LOG_COUNT
+	newLogHandle.Size = UDim2.new(1, 0, 0, 16)
+	newLogHandle.BackgroundTransparency = 0
+	newLogHandle.BackgroundColor3 = THEME.LogHandleColor
+	newLogHandle.BorderSizePixel = 0
+	newLogHandle.Font = Enum.Font.Code
+	newLogHandle.TextColor3 = THEME.TextColor
+	newLogHandle.TextSize = lineTextSize
+	newLogHandle.TextXAlignment = Enum.TextXAlignment.Left
+	newLogHandle.Text = " " .. prefix .. "  " .. self.Name
+	
+	local newLog = Instance.new("TextBox", outputContainer)
+	newLog.Name = "LogText"
+	newLog.Size = UDim2.new(1, -4, 0, #string.split(text, "\n") * lineHeight)
+	newLog.BackgroundTransparency = 1
+	newLog.Font = Enum.Font.Code
+	newLog.TextXAlignment = Enum.TextXAlignment.Left
+	newLog.TextYAlignment = Enum.TextYAlignment.Top
+	newLog.TextSize = lineTextSize
+	newLog.TextColor3 = THEME.TextColor
+	newLog.Text = "\n" .. text
+	newLog.Visible = false
+	newLog.TextEditable = false
+	newLog.ClearTextOnFocus = false
+	
+	local clipboardButton = Instance.new("TextButton", newLogHandle)
+	clipboardButton.Name = "CopyButton"
+	clipboardButton.AnchorPoint = Vector2.new(1, 0)
+	clipboardButton.Size = UDim2.new(0, 60, 1, 0)
+	clipboardButton.Position = UDim2.new(1, 0, 0, 0)
+	clipboardButton.BorderSizePixel = 0
+	clipboardButton.BackgroundColor3 = THEME.LogCopyToClipboardButtonColor
+	clipboardButton.Font = Enum.Font.Code
+	clipboardButton.TextColor3 = THEME.TextColor
+	clipboardButton.TextSize = 13
+	clipboardButton.Text = "Copy"
+	
+	local icon = Instance.new("ImageLabel", newLogHandle)
+	icon.Name = "Icon"
+	icon.BackgroundTransparency = 1
+	icon.Size = UDim2.new(0, 16, 0, 16)
+	icon.Position = UDim2.new(0, iconOffset, 0, 0)
+	
+	local collapsed = Instance.new("BoolValue", newLogHandle)
+	collapsed.Name = "Collapsed"
+	collapsed.Value = true
+	
+	collapsed:GetPropertyChangedSignal("Value"):Connect(function()
+		newLog.Visible = not collapsed.Value
+	end)
+	
+	newLogHandle.MouseButton1Click:Connect(function()
+		newLog.Visible = not newLog.Visible
+		collapsed.Value = not newLog.Visible
+	end)
+	
+	clipboardButton.MouseButton1Click:Connect(function()
+		setclipboard(code)
+	end)
+	
+	if self.ClassName == "RemoteEvent" then
+		icon.Image = "rbxassetid://413369506"
+	elseif self.ClassName == "RemoteFunction" then
+		icon.Image = "rbxassetid://413369623"
+	end
+	
+	-- Count Call
+	for _, v in pairs(SPIED_REMOTES) do
+		if v.Remote == self then
+			v.CountCall()
+			break
+		end
+	end
+end
+
+local SpecialTypes = {
+    Vector3 = "Vector3.new(#)",
+    Vector2 = "Vector2.new(#",
+    CFrame = "CFrame.new(#)",
+    UDim = "UDim.new(#)",
+    UDim2 = "UDim2.new(#)",
+    Axes = "Axes.new(#)",
+    Faces = "Faces.new(#)",
+    BrickColor = 'BrickColor.new("#")',
+    Color3 = "Color3.new(#)",
+    ColorSequence = "ColorSequence.new(#)",
+    Region3 = "Region3.new(#)",
+    Region3int16 = "Region3int16.new(#)",
+    TweenInfo = "TweenInfo.new(#)",
+    NumberRange = "NumberRange.new(#)",
+    NumberSequence = "NumberSequence.new(#)",
+    TweenInfo = "TweenInfo.new(#)",
+    Random = "Random.new(#)",
+    NumberSequenceKeypoint = "NumberSequenceKeypoint.new(#)",
+    PathWaypoint = "PathWaypoint.new(#)",
+    Ray = "Ray.new(#)",
+}
+
+local function GetTimeStamp()
+	local function AddZero(i)
+		local s = tostring(i)
+		
+		if string.len(s) == 1 then
+			return "0" .. s
+		end
+		
+		return s
+	end
+	
+    local t = tick()
+
+    local hours = AddZero(math.floor(t / 3600) % 24)
+    local mins = AddZero(math.floor(t / 60) % 60)
+    local secs = AddZero(math.floor(t % 60))
+
+    return hours .. ":" .. mins .. ":" .. secs
+end
+
+local function FormatVariable(v)
+    if typeof(v) == "Instance" then
+        return "game" .. GetFullName(v)
+    elseif type(v) == "string" then
+        return [["]] .. v .. [["]]
+    else
+        if SpecialTypes[typeof(v)] then
+            return SpecialTypes[typeof(v)]:gsub("#", tostring(v))
+        end
+    end
+    
+    return tostring(v)
+end
+
+local function ParseTable(t, depth, line)
+	local paddingSize = 1
+	local paddingChar = "FJKAryfeEaHfBrvZ"
+	
+	local str = ""
+	local stuff = {}
+	
+	for i = 1, #t do -- Don't use pairs because it ignores nil values
+		local v = t[i]
+		
+		local padding = ""
+		
+		for i = 1, (depth + 1) * paddingSize do
+			padding = padding .. paddingChar
+		end
+		
+		if type(v) == "table" then
+			table.insert(stuff, "\n" .. ParseTable(v, depth + 1, i))
+		else
+			if SHOW_NUMBERS then
+				table.insert(stuff, string.format("\n" .. padding .. "\%s\ : %s", i, FormatVariable(v)))
+			else
+				table.insert(stuff, "\n" .. padding .. FormatVariable(v))
+			end
+		end
+	end
+	
+	local start = ""
+	local closer = ""
+	
+	for i = 1, depth * paddingSize do
+		start = start .. paddingChar
+		closer = closer .. paddingChar
+	end
+	
+	closer = closer .. "}"
+	
+	if SHOW_NUMBERS then
+		start = start .. line .. " : {"
+	else
+		start = start .. "{"
+	end
+	
+	str = str .. start .. table.concat(stuff, ", ") .. "\n" .. closer
+	
+	return str
+end
+
+-- Stores the latest remote calls for logging
+local recordQueue = {}
+
+-- Update Containers
+game:GetService("RunService").RenderStepped:Connect(function()
+	if SCRIPT_ENABLED then
+		CheckContainerSize() -- Adjust Output Container Size
+		
+		if outputContainer.CanvasPosition.Y + outputContainer.AbsoluteSize.Y >= outputContainer.CanvasSize.Y.Offset - 5 then
+			AUTO_SCROLL_ENABLED = true
+		end
+		
+		if AUTO_SCROLL_ENABLED then
+			outputContainer.CanvasPosition = Vector2.new(0, outputUIList.AbsoluteContentSize.Y)
+		end
+		
+		if #recordQueue >= 2 then
+			BUNCH_COUNT = BUNCH_COUNT + 1
+			
+			local newBunch = Instance.new("TextLabel", outputContainer)
+			newBunch.Name = "Bunch_" .. BUNCH_COUNT
+			newBunch.Font = Enum.Font.Code
+			newBunch.Size = UDim2.new(1, 0, 0, 16)
+			newBunch.TextXAlignment = Enum.TextXAlignment.Left
+			newBunch.TextYAlignment = Enum.TextYAlignment.Top
+			newBunch.BorderSizePixel = 0
+			newBunch.BackgroundColor3 = THEME.BunchColor
+			newBunch.TextColor3 = THEME.TextColor
+			newBunch.TextSize = 13
+			newBunch.Text = " " .. GetTimeStamp() .. " - Bunch #" .. BUNCH_COUNT
+		end
+		
+		for _, v in pairs(recordQueue) do
+			if #recordQueue == 1 then
+				LogRemote(v.Self, GetTimeStamp() .. "  ", 70, v.Text, v.Code)
+			else
+				LogRemote(v.Self, " ", 6,  v.Text, v.Code)
+			end
+		end
+		
+		if #recordQueue > 0 then
+			AddPadding(outputContainer, 4)
+		end
+		
+		recordQueue = {}
+	end
+end)
+
+local function RecordRemote(self, callerScript, arguments)
+	if SCRIPT_ENABLED then
+		for _, v in pairs(SPIED_REMOTES) do
+			if v.Remote == self then
+				if v.GetValue() == false then
+					return
+				end
+			end
+		end
+		
+		if not ALLOW_CHAT_REMOTES then
+			if game.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") then
+				if self.Parent == game.ReplicatedStorage.DefaultChatSystemChatEvents then
+					return
+				end
+			end
+		end
+		
+		local success, message = pcall(function()
+			local path = "game" .. GetFullName(self)
+			local from = "game." .. callerScript:GetFullName()
+			
+			local str = ParseTable(arguments, 0, 0)
+			
+			local code = str:gsub("FJKAryfeEaHfBrvZ", "	")
+			code = string.sub(code, 3, string.len(code) - 2)
+			
+			str = "\n" .. "Arguments : {" .. "\n" .. string.sub(str, 1, string.len(str) - 2) .. "\n" .. "}"
+			
+			-- Log Remote
+			str = "From   " .. from .. "\n" .. str
+			str = "To     " .. path .. "\n" .. str
+			
+			str = str .. "\n\n"
+			
+			if self.ClassName == "RemoteEvent" then
+				code = path .. ":FireServer(" .. "\n" .. code .. "\n" .. ")"
+			elseif self.ClassName == "RemoteFunction" then
+				code = path .. ":InvokeServer(" .. "\n" .. code .. "\n" .. ")"
+			end
+			
+			local t = {}
+			t.Self = self
+			t.Text = str:gsub("FJKAryfeEaHfBrvZ", "  ")
+			t.Code = code
+			
+			table.insert(recordQueue, t)
+		end)
+		
+		if not success then
+			warn(self, message)
+		end
+	end
+end
+
+-- Remote Spy
+local metatable = getrawmetatable(game)
+if setreadonly then
+	setreadonly(metatable, false)
+end
+
+local __namecall = __namecall or metatable.__namecall
+local __index = __index or metatable.__index
+if getgenv then
+	if removeSpy then
+		removeSpy()
+	end
+	getgenv().__namecall = __namecall
+	getgenv().__index = __index
+	getgenv().removeSpy = function()
+		getgenv().removeSpy = nil
+		metatable.__namecall = __namecall
+		metatable.__index = __index
+	end
+end
+
+local function LocalizedRemoteCallback(class)
+	return newcclosure(function(self, ...)
+		if typeof(self) ~= "Instance" then
+			error(select(2, pcall(REMOTE_CALL_METHODS_REFERENCE[class], self)), 0)
+		end
+
+		if self.ClassName ~= class then
+			error(select(2, pcall(REMOTE_CALL_METHODS_REFERENCE[class], self)), 0)
+		end
+
+		local arguments = {...};
+		local result	= {};
+
+		local callerScript = rawget(getfenv(0), "script")
+		callerScript = typeof(callerScript) == "Instance" and callerScript or nil
+
+		if ENABLED_TYPES[self.ClassName] then
+			RecordRemote(self, callerScript, arguments)
+		end
+
+		return unpack({REMOTE_CALL_METHODS[class](self, ...)})
+	end)
+end
+
+LocalizedRemoteCallback  = newcclosure(LocalizedRemoteCallback)
+
+for className, func in next, REMOTE_CALL_METHODS do
+	REMOTE_CALL_METHODS[className] = hookfunc(Instance.new(className)[func], LocalizedRemoteCallback(className))
+end
+
+local function IsAuthorized(self, index)
+	local map = {
+		BindableEvent = "Fire",
+		BindableFunction = "Invoke",
+		RemoteEvent = "FireServer",
+		RemoteFunction = "InvokeServer"
+	}
+
+
+	if (not map[self.ClassName]) then
+		return false
+	end
+
+	if (not rawequal(map[self.ClassName], index)) then
+		return false
+	end  
+
+	if not ENABLED_TYPES[self.ClassName] then
+		return false
+	end
+
+	return true
+end
+
+local LuaU = isluau()
+
+local RemoteCallback = newcclosure(function(self, ...)
+	if typeof(self) ~= "Instance" then
+		return error(select(2, pcall(__index, self))) -- magic
+	end
+
+	local arguments = {...}	
+	local result = {}
+	local callerScript = rawget(getfenv(0), "script")
+	callerScript = typeof(callerScript) == "Instance" and callerScript or nil
+	
+	RecordRemote(self, callerScript, arguments)
+	
+	return unpack({REMOTE_CALL_METHODS[self.ClassName](self, ...)})
+end)
+
+function metatable:__namecall(...)
+	local arguments = {...}
+	local index = LuaU and getnamecallmethod() or table.remove(arguments)
+	if IsAuthorized(self, index) then
+		return RemoteCallback(self, unpack(arguments))
+	end
+	return __namecall(self, ...)
+end
+
+metatable.__namecall = newcclosure(metatable.__namecall)
