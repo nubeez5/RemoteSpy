@@ -538,8 +538,8 @@ local function FormatStringCorrectlyForCode(input)
 	local function Check(s)
 		local first = string.sub(s, 1, 1)
 		
-		local bannedFirstChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890]]
-		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|]]
+		local bannedFirstChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890 ]]
+		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\| ]]
 		
 		for i = 1, string.len(bannedFirstChars) do
 			if first == string.sub(bannedFirstChars, i, i) then
@@ -547,7 +547,7 @@ local function FormatStringCorrectlyForCode(input)
 			end
 		end
 		
-		if string.match(s, "[~`!@#$%^&*()_+-=|\{};':,./<>?]") then
+		if string.match(s, "[~`!@#$%^&*()_+-=|\{};':,./<>? ]") then
 		    return false
 		end
 		
@@ -581,8 +581,8 @@ local function GetFullName(object)
 	local function Check(s)
 		local first = string.sub(s, 1, 1)
 		
-		local bannedFirstChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890]]
-		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|]]
+		local bannedFirstChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890 ]]
+		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\| ]]
 		
 		for i = 1, string.len(bannedFirstChars) do
 			if first == string.sub(bannedFirstChars, i, i) then
@@ -590,7 +590,7 @@ local function GetFullName(object)
 			end
 		end
 		
-		if string.match(s, "[~`!@#$%^&*()_+-=|\{};':,./<>?]") then
+		if string.match(s, "[~`!@#$%^&*()_+-=|\{};':,./<>? ]") then
 		    return false
 		end
 		
