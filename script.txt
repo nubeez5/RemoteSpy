@@ -532,21 +532,66 @@ do -- Disable auto scroll if scroll up
 	end)
 end
 
+local function FormatStringCorrectlyForCode(input)
+	local str = ""
+	
+	local function Check(s)
+		local first = string.sub(s, 1, 1)
+		
+		local bannedFirstChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890]]
+		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|]]
+		
+		for i = 1, string.len(bannedFirstChars) do
+			if first == string.sub(bannedFirstChars, i, i) then
+				return false
+			end
+		end
+		
+		if string.match(s, "[~`!@#$%^&*()_+-=|\{};':,./<>?]") then
+		    return false
+		end
+		
+		if first == "[" or first == "]" then
+			return false
+		end
+		
+		return true
+	end
+	
+	local components = string.split(input, ".")
+
+	for i = 1, #components do
+		local comp = components[i]
+		
+		if Check(comp) then
+			str = str .. "." .. comp
+		else
+			str = str .. '["' .. comp .. '"]'
+		end
+	end
+	
+	return string.sub(str, 2, string.len(str))
+end
+
 local function GetFullName(object)
     local str = ""
     local obj = object
-
 	local removeDot = false
 	
 	local function Check(s)
 		local first = string.sub(s, 1, 1)
 		
-		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890]]
+		local bannedFirstChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|1234567890]]
+		local bannedChars = [[~`!@#$%^&*()_+=-{}:";'<>,./?\|]]
 		
-		for i = 1, #bannedChars do
-			if first == string.sub(bannedChars, i, i) then
+		for i = 1, string.len(bannedFirstChars) do
+			if first == string.sub(bannedFirstChars, i, i) then
 				return false
 			end
+		end
+		
+		if string.match(s, "[~`!@#$%^&*()_+-=|\{};':,./<>?]") then
+		    return false
 		end
 		
 		if first == "[" or first == "]" then
@@ -769,8 +814,22 @@ do -- Update explorer
 		end
 	end
 	
-	for _, v in pairs(game:GetDescendants()) do
-		Add(v)
+	do -- Add remotes already existing
+		local t = {}
+		
+		for _, v in pairs(game:GetDescendants()) do
+			if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+				table.insert(t, v)
+			end
+		end
+		
+		table.sort(t, function(a, b)
+			return string.lower(a.Name) < string.lower(b.Name)
+		end)
+		
+		for _, v in pairs(t) do
+			Add(v)
+		end
 	end
 	
 	game.DescendantAdded:Connect(function(c)
@@ -1044,7 +1103,7 @@ local function RecordRemote(self, callerScript, arguments)
 		
 		local success, message = pcall(function()
 			local path = "game" .. GetFullName(self)
-			local from = "game." .. callerScript:GetFullName()
+			local from = FormatStringCorrectlyForCode("game." .. tostring(callerScript:GetFullName()))
 			
 			local str = ParseTable(arguments, 0, 0)
 			
