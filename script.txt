@@ -16,7 +16,7 @@ local BUNCH_COUNT = 0
 local THEME_SETTING = 1 -- Dark Mode = 1, Light Mode = 2
 local APPLICATION_TITLE = "Remote Spy"
 
-local APP_MIN_SIZE = Vector2.new(400, 60)
+local APP_MIN_SIZE = Vector2.new(400, 58)
 local APP_DEFAULT_SIZE = Vector2.new(550, 380)
 local APP_INTERACTIVE_FRAME_WIDTH = 140
 
@@ -54,6 +54,8 @@ local BLACKLISTED_REMOTE_NAMES = { -- These are just default roblox remotes (onl
 	"GetServerVersion"
 }
 
+local BLACKLISTED_WORDS = {} -- For blacklist container
+
 -- Theme
 local THEME = {}
 
@@ -76,6 +78,29 @@ if THEME_SETTING == 1 then
 	THEME.BunchColor = Color3.fromRGB(45, 65, 75)
 	THEME.LogHandleColor = Color3.fromRGB(40, 40, 40)
 	THEME.LogCopyToClipboardButtonColor = Color3.fromRGB(60, 60, 60)
+	
+	THEME.SwitchColor = Color3.fromRGB(255, 255, 255)
+	THEME.SwitchBackgroundColor_Off = Color3.fromRGB(100, 40, 40)
+	THEME.SwitchBackgroundColor_On = Color3.fromRGB(40, 160, 40)
+elseif THEME_SETTING == 2 then
+	THEME.TextColor = Color3.fromRGB(20, 20, 20)
+	
+	THEME.TextFont_Standard = Enum.Font.Gotham
+	THEME.TextFont_SemiBold = Enum.Font.GothamSemibold
+	THEME.TextFont_Bold = Enum.Font.GothamBold
+	
+	THEME.AppTitle_Font = Enum.Font.GothamBold
+	THEME.ViewerContainerBackgroundColor = Color3.fromRGB(215, 215, 215)
+	
+	THEME.BackgroundColor_1 = Color3.fromRGB(230, 230, 230)
+	THEME.BackgroundColor_2 = Color3.fromRGB(220, 220, 220)
+	THEME.BackgroundColor_3 = Color3.fromRGB(210, 210, 210)
+	THEME.BackgroundColor_4 = Color3.fromRGB(200, 200, 200)
+	THEME.BackgroundColor_5 = Color3.fromRGB(190, 190, 190)
+	
+	THEME.BunchColor = Color3.fromRGB(180, 180, 220)
+	THEME.LogHandleColor = Color3.fromRGB(170, 170, 170)
+	THEME.LogCopyToClipboardButtonColor = Color3.fromRGB(220, 220, 220)
 	
 	THEME.SwitchColor = Color3.fromRGB(255, 255, 255)
 	THEME.SwitchBackgroundColor_Off = Color3.fromRGB(100, 40, 40)
@@ -239,6 +264,119 @@ explorerContainer.UIListLayout:Destroy()
 local explorerUIList = Instance.new("UIListLayout", explorerContainer)
 explorerUIList.SortOrder = Enum.SortOrder.LayoutOrder
 explorerUIList.Padding = UDim.new(0, 2)
+
+-- Blacklist
+local blacklistTab = Instance.new("TextButton", viewerTabContainer)
+blacklistTab.Name = "BlacklistTab"
+blacklistTab.BackgroundColor3 = THEME.ViewerContainerBackgroundColor
+blacklistTab.BorderSizePixel = 0
+blacklistTab.AutoButtonColor = false
+blacklistTab.Size = UDim2.new(0, 65, 1, -2)
+blacklistTab.Position = UDim2.new(0, 138, 1, 0)
+blacklistTab.AnchorPoint = Vector2.new(0, 1)
+blacklistTab.Font = THEME.TextFont_Bold
+blacklistTab.TextColor3 = THEME.TextColor
+blacklistTab.TextSize = 11
+blacklistTab.Text = "Blacklist"
+
+local blacklistContainer = Instance.new("Frame", appFrame)
+blacklistContainer.Name = "BlacklistContainer"
+blacklistContainer.BackgroundTransparency = 1
+blacklistContainer.AnchorPoint = Vector2.new(1, 1)
+blacklistContainer.Position = UDim2.new(1, 0, 1, 0)
+blacklistContainer.Size = UDim2.new(1, -APP_INTERACTIVE_FRAME_WIDTH, 1, -38)
+blacklistContainer.BorderSizePixel = 0
+blacklistContainer.Active = true
+blacklistContainer.Visible = false
+
+local blacklistAddIcon = Instance.new("TextButton", blacklistContainer)
+blacklistAddIcon.Name = "AddIcon"
+blacklistAddIcon.BackgroundTransparency = 1
+blacklistAddIcon.Text = ""
+blacklistAddIcon.Size = UDim2.new(0, 10, 0, 10)
+blacklistAddIcon.Position = UDim2.new(0, 4, 0, 1)
+
+local blacklistListContainer = Instance.new("ScrollingFrame", blacklistContainer)
+blacklistListContainer.Name = "BlacklistListContainer"
+blacklistListContainer.BackgroundTransparency = 0
+blacklistListContainer.BackgroundColor3 = THEME.BackgroundColor_3
+blacklistListContainer.TopImage = blacklistListContainer.MidImage
+blacklistListContainer.BottomImage = blacklistListContainer.MidImage
+blacklistListContainer.AnchorPoint = Vector2.new(0, 1)
+blacklistListContainer.Position = UDim2.new(0, 0, 1, 0)
+blacklistListContainer.Size = UDim2.new(1, 0, 1, -14)
+blacklistListContainer.BorderSizePixel = 0
+blacklistListContainer.ScrollBarThickness = 8
+blacklistListContainer.ScrollingEnabled = true
+blacklistListContainer.Active = true
+blacklistListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+blacklistListContainer.ZIndex = 1
+blacklistListContainer.Visible = true
+
+local blacklistUIList = Instance.new("UIListLayout", blacklistListContainer)
+blacklistUIList.SortOrder = Enum.SortOrder.LayoutOrder
+blacklistUIList.Padding = UDim.new(0, 2)
+
+do -- 'blacklistAddIcon' lines and interaction
+	local line1 = Instance.new("Frame", blacklistAddIcon)
+	line1.Name = "Line"
+	line1.BorderSizePixel = 0
+	line1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	line1.Size = UDim2.new(1, 0, 0, 2)
+	line1.Position = UDim2.new(0.5, 0, 0.5, 0)
+	line1.AnchorPoint = Vector2.new(0.5, 0.5)
+	
+	local line2 = Instance.new("Frame", blacklistAddIcon)
+	line2.Name = "Line"
+	line2.BorderSizePixel = 0
+	line2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	line2.Size = UDim2.new(0, 2, 1, 0)
+	line2.Position = UDim2.new(0.5, 0, 0.5, 0)
+	line2.AnchorPoint = Vector2.new(0.5, 0.5)
+	
+	blacklistAddIcon.MouseButton1Click:Connect(function()
+		local frame = Instance.new("Frame", blacklistListContainer)
+		frame.Name = "BlacklistContainer"
+		frame.BackgroundColor3 = THEME.LogHandleColor
+		frame.Size = UDim2.new(1, 0, 0, 18)
+		frame.BorderSizePixel = 0
+		
+		local frame2 = Instance.new("TextBox", frame)
+		frame2.Name = "TextBox"
+		frame2.Size = UDim2.new(1, -25, 1, 0)
+		frame2.Position = UDim2.new(0, 7, 0, 0)
+		frame2.BackgroundColor3 = THEME.LogHandleColor
+		frame2.BorderSizePixel = 0
+		frame2.Font = Enum.Font.Code
+		frame2.TextSize = 13
+		frame2.TextColor3 = THEME.TextColor
+		frame2.TextXAlignment = Enum.TextXAlignment.Left
+		frame2.TextWrapped = true
+		
+		local closeButton = Instance.new("ImageButton", frame)
+		closeButton.Name = "CloseButton"
+		closeButton.Image = "rbxassetid://4389749368"
+		closeButton.Size = UDim2.new(0, 12, 0, 12)
+		closeButton.AnchorPoint = Vector2.new(0, 0.5)
+		closeButton.BackgroundTransparency = 1
+		closeButton.AutoButtonColor = false
+		closeButton.Position = UDim2.new(1, -16, 0.5, 0)
+		
+		closeButton.MouseButton1Click:Connect(function()
+			frame:Destroy()
+		end)
+	end)
+	
+	blacklistAddIcon.MouseEnter:Connect(function()
+		line1.BackgroundColor3 = Color3.fromRGB(170, 170, 170)
+		line2.BackgroundColor3 = Color3.fromRGB(170, 170, 170)
+	end)
+	
+	blacklistAddIcon.MouseLeave:Connect(function()
+		line1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		line2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	end)
+end
 
 -- Interactive Stuff
 local function CreateButton(parent, name, buttonText, connectFunction, args)
@@ -484,29 +622,45 @@ do
 		Enum.EasingDirection.InOut
 	)
 	
-	local fadeoutGoal = {}
-	fadeoutGoal.BackgroundColor3 = THEME.BackgroundColor_3
-	
 	local fadeinGoal = {}
-	fadeinGoal.BackgroundColor3 = THEME.ViewerContainerBackgroundColor
+	fadeinGoal.BackgroundColor3 = THEME.BackgroundColor_3
+	
+	local fadeoutGoal = {}
+	fadeoutGoal.BackgroundColor3 = THEME.ViewerContainerBackgroundColor
 	
 	outputTab.MouseButton1Down:Connect(function()
 		if SCRIPT_ENABLED then
-			local t1 = game:GetService("TweenService"):Create(outputTab, tweenInfo, fadeoutGoal) t1:Play()
-			local t2 = game:GetService("TweenService"):Create(explorerTab, tweenInfo, fadeinGoal) t2:Play()
+			local t1 = game:GetService("TweenService"):Create(outputTab, tweenInfo, fadeinGoal) t1:Play()
+			local t2 = game:GetService("TweenService"):Create(explorerTab, tweenInfo, fadeoutGoal) t2:Play()
+			local t3 = game:GetService("TweenService"):Create(blacklistTab, tweenInfo, fadeoutGoal) t3:Play()
 			
 			outputContainer.Visible = true outputContainer.ZIndex = 100
 			explorerContainer.Visible = false explorerContainer.ZIndex = 1
+			blacklistContainer.Visible = false blacklistContainer.ZIndex = 1
 		end
 	end)
 	
 	explorerTab.MouseButton1Down:Connect(function()
 		if SCRIPT_ENABLED then
-			local t1 = game:GetService("TweenService"):Create(outputTab, tweenInfo, fadeinGoal) t1:Play()
-			local t2 = game:GetService("TweenService"):Create(explorerTab, tweenInfo, fadeoutGoal) t2:Play()
+			local t1 = game:GetService("TweenService"):Create(outputTab, tweenInfo, fadeoutGoal) t1:Play()
+			local t2 = game:GetService("TweenService"):Create(explorerTab, tweenInfo, fadeinGoal) t2:Play()
+			local t3 = game:GetService("TweenService"):Create(blacklistTab, tweenInfo, fadeoutGoal) t3:Play()
 			
 			outputContainer.Visible = false outputContainer.ZIndex = 1
 			explorerContainer.Visible = true explorerContainer.ZIndex = 100
+			blacklistContainer.Visible = false blacklistContainer.ZIndex = 1
+		end
+	end)
+	
+	blacklistTab.MouseButton1Down:Connect(function()
+		if SCRIPT_ENABLED then
+			local t1 = game:GetService("TweenService"):Create(outputTab, tweenInfo, fadeoutGoal) t1:Play()
+			local t2 = game:GetService("TweenService"):Create(explorerTab, tweenInfo, fadeoutGoal) t2:Play()
+			local t3 = game:GetService("TweenService"):Create(blacklistTab, tweenInfo, fadeinGoal) t3:Play()
+			
+			outputContainer.Visible = false outputContainer.ZIndex = 1
+			explorerContainer.Visible = false explorerContainer.ZIndex = 1
+			blacklistContainer.Visible = true blacklistContainer.ZIndex = 100
 		end
 	end)
 end
@@ -640,6 +794,8 @@ local function CheckContainerSize()
 		explorerContainer.CanvasSize = UDim2.new(0, 0, 0, height)
 	end
 end
+
+local asdasd = 0
 
 do -- Update explorer
 	local function AddRemoteToExplorer(remoteInfo)
@@ -833,13 +989,22 @@ do -- Update explorer
 	end
 	
 	game.DescendantAdded:Connect(function(c)
-		Add(c)
+		if SCRIPT_ENABLED then
+			Add(c)
+		end
 	end)
 	
 	game.DescendantRemoving:Connect(function(c)
-		for i, v in pairs(REMOTES_IN_EXPLORER) do
-			if v.Remote == c then
-				table.remove(REMOTES_IN_EXPLORER, i)
+		if SCRIPT_ENABLED then
+			if c:IsA("RemoteEvent") or c:IsA("RemoteFunction") then
+				for i, v in pairs(REMOTES_IN_EXPLORER) do
+					if v.Remote == c then
+						RemoveListedRemote(c)
+						table.remove(REMOTES_IN_EXPLORER, i)
+						
+						break
+					end
+				end
 			end
 		end
 	end)
@@ -1043,6 +1208,16 @@ game:GetService("RunService").RenderStepped:Connect(function()
 	if SCRIPT_ENABLED then
 		CheckContainerSize() -- Adjust Output Container Size
 		
+		do -- Update blacklisted words
+			BLACKLISTED_WORDS = {}
+			
+			for _, v in pairs(blacklistListContainer:GetChildren()) do
+				if v:FindFirstChild("TextBox") then
+					table.insert(BLACKLISTED_WORDS, v.TextBox.Text)
+				end
+			end
+		end
+		
 		if outputContainer.CanvasPosition.Y + outputContainer.AbsoluteSize.Y >= outputContainer.CanvasSize.Y.Offset - 5 then
 			AUTO_SCROLL_ENABLED = true
 		end
@@ -1129,7 +1304,20 @@ local function RecordRemote(self, callerScript, arguments)
 			t.Text = str:gsub("FJKAryfeEaHfBrvZ", "  ")
 			t.Code = code
 			
-			table.insert(recordQueue, t)
+			do
+				local checked = true
+				
+				for _, v in pairs(BLACKLISTED_WORDS) do
+					if string.find(code, v) then
+						checked = false
+						break
+					end
+				end
+				
+				if checked then
+					table.insert(recordQueue, t)
+				end
+			end
 		end)
 		
 		if not success then
