@@ -352,6 +352,7 @@ do -- 'blacklistAddIcon' lines and interaction
 		frame2.TextColor3 = THEME.TextColor
 		frame2.TextXAlignment = Enum.TextXAlignment.Left
 		frame2.TextWrapped = true
+		frame2.Text = "Enter here"
 		
 		local closeButton = Instance.new("ImageButton", frame)
 		closeButton.Name = "CloseButton"
